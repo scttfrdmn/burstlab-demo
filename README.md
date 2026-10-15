@@ -212,8 +212,8 @@ scripts/render-mp4.sh                       # sped-up .cast + MP4 (waits compres
 
 | File (in `recordings/`) | |
 |---|---|
-| `burstlab-demo.cast` | real time — play with `asciinema play`, or embed the asciinema player |
-| `burstlab-demo-fast.cast` | boot, job runtime and idle waits squeezed to a few seconds each |
+| `burstlab-demo.cast` | real time — `asciinema play -m recordings/burstlab-demo.cast` (`-m` holds the final frame instead of exiting; add `-s 2` for 2×) |
+| `burstlab-demo-fast.cast` | boot, job runtime and idle waits squeezed to a few seconds each — also play with `-m` |
 | `burstlab-demo-fast.mp4` | the sped-up version as video |
 
 Add `--sim` to `record-demo.sh` to try the recording pipeline without a cluster.

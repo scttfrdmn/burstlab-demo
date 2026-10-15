@@ -7,7 +7,13 @@ runtime, the SuspendTime idle wait — into a few seconds, leaving every state
 change at real speed. The dashboard's clock shows the real time, so the
 jumps stay honest.
 
+It also ends the cast on the final dashboard frame: the trailing tmux exit
+(clear screen, "[exited]") is dropped, the last frame is held for a few
+seconds, and an end marker is added so `asciinema play -m` pauses there
+instead of quitting.
+
 Usage: scripts/speedup-cast.py recordings/burstlab-demo.cast [-o out.cast]
+       scripts/speedup-cast.py --finish-only recordings/burstlab-demo.cast   # trim in place, no speed-up
 """
 import argparse
 import json
@@ -24,11 +30,35 @@ PLAN = [
 ]
 
 
+HOLD_SECONDS = 4
+ALT_SCREEN_EXIT = "\x1b[?1049l"
+
+
+def finish(events):
+    """Drop the trailing tmux exit and hold the last frame behind an end marker."""
+    for i in range(len(events) - 1, -1, -1):
+        if events[i][1] == "o" and ALT_SCREEN_EXIT in events[i][2]:
+            events = events[:i]
+            break
+    events = [e for e in events if e[1] != "x"]  # exit status
+    if events and events[-1][1] == "m":          # already finished
+        return events
+    return events + [[HOLD_SECONDS, "o", ""], [0.0, "m", "end"]]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cast")
     ap.add_argument("-o", "--out")
+    ap.add_argument("--finish-only", action="store_true", help="only trim the ending, in place")
     a = ap.parse_args()
+    if a.finish_only:
+        src = pathlib.Path(a.cast)
+        lines = src.read_text().splitlines()
+        events = finish([json.loads(l) for l in lines[1:] if l.strip()])
+        src.write_text(lines[0] + "\n" + "\n".join(json.dumps(e, ensure_ascii=False) for e in events) + "\n")
+        print(f"{src}: ending trimmed, end marker added")
+        return
     src = pathlib.Path(a.cast)
     out = pathlib.Path(a.out or src.with_name(src.stem + "-fast.cast"))
     marks = {}
@@ -52,6 +82,7 @@ def main():
         t += ev[0]
         factor = next((f for s, e, f in windows if s <= t < e), 1.0)
         kept.append([round(ev[0] * factor, 6)] + ev[1:])
+    kept = finish(kept)
     out.write_text(header + "\n" + "\n".join(json.dumps(e, ensure_ascii=False) for e in kept) + "\n")
     before, after = sum(e[0] for e in events), sum(e[0] for e in kept)
     print(f"{out}: {before/60:.1f} min → {after/60:.1f} min ({len(windows)} stretches compressed)")
