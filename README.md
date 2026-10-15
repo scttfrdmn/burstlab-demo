@@ -106,3 +106,7 @@ internal/ui/            Bubble Tea dashboard
 internal/launch/        tmux layout
 jobs/                   demo job scripts (embedded; installed by push-jobs)
 ```
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
