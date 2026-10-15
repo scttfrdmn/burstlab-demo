@@ -32,12 +32,13 @@ type Live struct {
 	slurm   slurmResult
 	slurmAt time.Time
 	insts   map[string]ec2Instance
+	alive   map[string]bool // instance IDs this session has seen not-terminated
 	slurmEr error
 	ec2Er   error
 }
 
 func NewLive(ctx context.Context, s SSH, e *EC2) *Live {
-	l := &Live{ssh: s, ec2: e}
+	l := &Live{ssh: s, ec2: e, alive: map[string]bool{}}
 	go l.loop(ctx, 2*time.Second, func() {
 		r, err := pollSlurm(ctx, l.ssh)
 		l.mu.Lock()
@@ -54,6 +55,11 @@ func NewLive(ctx context.Context, s SSH, e *EC2) *Live {
 		l.ec2Er = err
 		if err == nil {
 			l.insts = m
+			for _, i := range m {
+				if i.State != state.EC2Terminated {
+					l.alive[i.ID] = true
+				}
+			}
 		}
 	})
 	return l
@@ -147,6 +153,16 @@ func (l *Live) attach(n *state.Node) {
 	i, ok := l.insts[n.Name]
 	if !ok {
 		return
+	}
+	if i.State == state.EC2Terminated {
+		// "terminated" is shown so the audience sees billing stop for a node
+		// they watched. EC2 lists terminated instances for ~an hour, and
+		// names are reused across burst cycles and redeploys of the same
+		// cluster, so only show ones this session saw alive, and never over
+		// a slot Slurm is powering up again.
+		if !l.alive[i.ID] || strings.Contains(n.SlurmState, "POWERING_UP") {
+			return
+		}
 	}
 	n.EC2State, n.InstanceID, n.LaunchTime = i.State, i.ID, i.LaunchTime
 }

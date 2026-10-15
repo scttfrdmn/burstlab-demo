@@ -168,8 +168,7 @@ First, in the shell pane, cancel the demo jobs with `~/demo/9-reset.sh`. Then:
 
 ```bash
 cd ~/src/burstlab-deploy/terraform/generations/gen2-slurm2311-rocky9
-AWS_PROFILE=aws AWS_DEFAULT_REGION=us-west-2 CLUSTER=burstlab-gen2 \
-  KEY=~/.ssh/burstlab-demo-key.pem HEAD_NODE_IP=<ip> \
+AWS_PROFILE=aws KEY=~/.ssh/burstlab-demo-key.pem \
   bash ../../../scripts/teardown.sh        # drain → terminate burst nodes → terraform destroy
 ```
 
